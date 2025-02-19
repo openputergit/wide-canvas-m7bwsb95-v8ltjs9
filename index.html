@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Assignment Submission Portal</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        .loading {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 1000;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            z-index: 999;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <!-- Loading Spinner -->
+    <div id="loading" class="loading">
+        <div class="animate-spin rounded-full h-16 w-16 border-t-4 border-blue-500"></div>
+    </div>
+
+    <!-- Auth Modal -->
+    <div id="authModal" class="modal flex items-center justify-center">
+        <div class="bg-white p-8 rounded-lg shadow-lg max-w-md w-full">
+            <div id="loginForm">
+                <h2 class="text-2xl font-bold mb-6">Login</h2>
+                <input type="email" id="loginEmail" placeholder="Email" class="w-full p-2 mb-4 border rounded">
+                <input type="password" id="loginPassword" placeholder="Password" class="w-full p-2 mb-4 border rounded">
+                <button onclick="login()" class="w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600">Login</button>
+                <p class="mt-4 text-center">
+                    <span class="cursor-pointer text-blue-500" onclick="toggleForms('registerForm')">Register</span> | 
+                    <span class="cursor-pointer text-blue-500" onclick="toggleForms('forgotForm')">Forgot Password</span>
+                </p>
+            </div>
+
+            <div id="registerForm" class="hidden">
+                <h2 class="text-2xl font-bold mb-6">Register</h2>
+                <input type="text" id="regName" placeholder="Full Name" class="w-full p-2 mb-4 border rounded">
+                <input type="text" id="regId" placeholder="Student ID" class="w-full p-2 mb-4 border rounded">
+                <select id="regSection" class="w-full p-2 mb-4 border rounded">
+                    <option value="">Select Section</option>
+                    <option value="A">Section A</option>
+                    <option value="B">Section B</option>
+                    <option value="C">Section C</option>
+                </select>
+                <select id="regCourse" class="w-full p-2 mb-4 border rounded">
+                    <option value="">Select Course</option>
+                    <option value="BCA">BCA</option>
+                    <option value="BTech">B.Tech</option>
+                    <option value="MCA">MCA</option>
+                    <option value="CS">CS</option>
+                    <option value="BSc">B.Sc IT</option>
+                </select>
+                <input type="email" id="regEmail" placeholder="Email" class="w-full p-2 mb-4 border rounded">
+                <input type="password" id="regPassword" placeholder="Password" class="w-full p-2 mb-4 border rounded">
+                <button onclick="register()" class="w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600">Register</button>
+                <p class="mt-4 text-center">
+                    <span class="cursor-pointer text-blue-500" onclick="toggleForms('loginForm')">Back to Login</span>
+                </p>
+            </div>
+
+            <div id="forgotForm" class="hidden">
+                <h2 class="text-2xl font-bold mb-6">Forgot Password</h2>
+                <input type="email" id="forgotEmail" placeholder="Email" class="w-full p-2 mb-4 border rounded">
+                <button onclick="resetPassword()" class="w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600">Reset Password</button>
+                <p class="mt-4 text-center">
+                    <span class="cursor-pointer text-blue-500" onclick="toggleForms('loginForm')">Back to Login</span>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div id="mainContent" class="hidden">
+        <nav class="bg-white shadow-lg">
+            <div class="max-w-7xl mx-auto px-4">
+                <div class="flex justify-between h-16">
+                    <div class="flex items-center">
+                        <span class="text-xl font-bold">Assignment Portal</span>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <span id="userInfo" class="text-gray-600"></span>
+                        <button onclick="logout()" class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600">
+                            <i class="bi bi-box-arrow-right"></i> Logout
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <div class="max-w-7xl mx-auto px-4 py-6">
+            <div class="mb-8">
+                <h2 class="text-2xl font-bold mb-4">Upload Assignment</h2>
+                <div class="bg-white p-6 rounded-lg shadow">
+                    <input type="file" id="assignmentFile" class="mb-4">
+                    <textarea id="assignmentDescription" placeholder="Assignment Description" class="w-full p-2 mb-4 border rounded"></textarea>
+                    <button onclick="uploadAssignment()" class="bg-green-500 text-white px-6 py-2 rounded hover:bg-green-600">
+                        <i class="bi bi-cloud-upload"></i> Upload
+                    </button>
+                </div>
+            </div>
+
+            <div>
+                <h2 class="text-2xl font-bold mb-4">My Assignments</h2>
+                <div id="assignmentsList" class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    <!-- Assignments will be populated here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentUser = null;
+        const appSlug = 'assignment-portal-123456';
+
+        // Show loading spinner
+        function showLoading() {
+            document.getElementById('loading').style.display = 'block';
+        }
+
+        // Hide loading spinner
+        function hideLoading() {
+            document.getElementById('loading').style.display = 'none';
+        }
+
+        // Toggle between forms
+        function toggleForms(formId) {
+            ['loginForm', 'registerForm', 'forgotForm'].forEach(id => {
+                document.getElementById(id).classList.add('hidden');
+            });
+            document.getElementById(formId).classList.remove('hidden');
+        }
+
+        // Initialize the application
+        function init() {
+            document.getElementById('authModal').style.display = 'flex';
+            document.getElementById('mainContent').classList.add('hidden');
+        }
+
+        // Register new user
+        async function register() {
+            showLoading();
+            const userData = {
+                name: document.getElementById('regName').value,
+                studentId: document.getElementById('regId').value,
+                section: document.getElementById('regSection').value,
+                course: document.getElementById('regCourse').value,
+                email: document.getElementById('regEmail').value,
+                password: document.getElementById('regPassword').value
+            };
+
+            try {
+                const response = await fetch('https://r0c8kgwocscg8gsokogwwsw4.zetaverse.one/mongodb', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': 'Bearer fjrSbdYBZFM3UFUjuZ999z4U3nM2',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        appSlug,
+                        action: 'create',
+                        collection: 'users',
+                        data: userData
+                    })
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    alert('Registration successful! Please login.');
+                    toggleForms('loginForm');
+                } else {
+                    alert('Registration failed. Please try again.');
+                }
+            } catch (error) {
+                console.error('Registration error:', error);
+                alert('Registration failed. Please try again.');
+            }
+            hideLoading();
+        }
+
+        // Login user
+        async function login() {
+            showLoading();
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+
+            try {
+                const response = await fetch('https://r0c8kgwocscg8gsokogwwsw4.zetaverse.one/mongodb', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': 'Bearer fjrSbdYBZFM3UFUjuZ999z4U3nM2',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        appSlug,
+                        action: 'read',
+                        collection: 'users',
+                        conditions: { email, password }
+                    })
+                });
+
+                const result = await response.json();
+                if (result.success && result.result.length > 0) {
+                    currentUser = result.result[0];
+                    document.getElementById('authModal').style.display = 'none';
+                    document.getElementById('mainContent').classList.remove('hidden');
+                    document.getElementById('userInfo').textContent = `${currentUser.name} (${currentUser.course})`;
+                    loadAssignments();
+                } else {
+                    alert('Invalid email or password');
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                alert('Login failed. Please try again.');
+            }
+            hideLoading();
+        }
+
+        // Upload assignment
+        async function uploadAssignment() {
+            showLoading();
+            const file = document.getElementById('assignmentFile').files[0];
+            const description = document.getElementById('assignmentDescription').value;
+
+            if (!file) {
+                alert('Please select a file');
+                hideLoading();
+                return;
+            }
+
+            try {
+                // Upload file
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('userId', currentUser._id);
+                formData.append('appSlug', appSlug);
+
+                const uploadResponse = await fetch('https://r0c8kgwocscg8gsokogwwsw4.zetaverse.one/storage/upload', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': 'Bearer fjrSbdYBZFM3UFUjuZ999z4U3nM2'
+                    },
+                    body: formData
+                });
+
+                const uploadResult = await uploadResponse.json();
+
+                if (uploadResult.success) {
+                    // Save assignment details
+                    const assignmentData = {
+                        userId: currentUser._id,
+                        userName: currentUser.name,
+                        fileUrl: uploadResult.url,
+                        filePath: uploadResult.path,
+                        description,
+                        section: currentUser.section,
+                        course: currentUser.course,
+                        timestamp: new Date().toISOString()
+                    };
+
+                    const saveResponse = await fetch('https://r0c8kgwocscg8gsokogwwsw4.zetaverse.one/mongodb', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': 'Bearer fjrSbdYBZFM3UFUjuZ999z4U3nM2',
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            appSlug,
+                            action: 'create',
+                            collection: 'assignments',
+                            data: assignmentData
+                        })
+                    });
+
+                    const saveResult = await saveResponse.json();
+                    if (saveResult.success) {
+                        alert('Assignment uploaded successfully!');
+                        document.getElementById('assignmentFile').value = '';
+                        document.getElementById('assignmentDescription').value = '';
+                        loadAssignments();
+                    }
+                }
+            } catch (error) {
+                console.error('Upload error:', error);
+                alert('Upload failed. Please try again.');
+            }
+            hideLoading();
+        }
+
+        // Load assignments
+        async function loadAssignments() {
+            showLoading();
+            try {
+                const response = await fetch('https://r0c8kgwocscg8gsokogwwsw4.zetaverse.one/mongodb', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': 'Bearer fjrSbdYBZFM3UFUjuZ999z4U3nM2',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        appSlug,
+                        action: 'read',
+                        collection: 'assignments',
+                        conditions: { section: currentUser.section }
+                    })
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    const assignmentsList = document.getElementById('assignmentsList');
+                    assignmentsList.innerHTML = '';
+
+                    result.result.forEach(assignment => {
+                        const card = document.createElement('div');
+                        card.className = 'bg-white p-4 rounded-lg shadow';
+                        card.innerHTML = `
+                            <div class="font-bold mb-2">${assignment.userName}</div>
+                            <p class="text-gray-600 mb-2">${assignment.description}</p>
+                            <div class="text-sm text-gray-500 mb-2">
+                                ${new Date(assignment.timestamp).toLocaleString()}
+                            </div>
+                            <div class="flex space-x-2">
+                                <a href="${assignment.fileUrl}" target="_blank" class="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600">
+                                    <i class="bi bi-download"></i> Download
+                                </a>
+                                ${assignment.userId === currentUser._id ? `
+                                    <button onclick="deleteAssignment('${assignment._id}', '${assignment.filePath}')" 
+                                            class="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600">
+                                        <i class="bi bi-trash"></i> Delete
+                                    </button>
+                                ` : ''}
+                            </div>
+                        `;
+                        assignmentsList.appendChild(card);
+                    });
+                }
+            } catch (error) {
+                console.error('Load assignments error:', error);
+                alert('Failed to load assignments. Please try again.');
+            }
+            hideLoading();
+        }
+
+        // Delete assignment
+        async function deleteAssignment(assignmentId, filePath) {
+            if (!confirm('Are you sure you want to delete this assignment?')) return;
+
+            showLoading();
+            try {
+                // Delete file from storage
+                const deleteFileResponse = await fetch('https://r0c8kgwocscg8gsokogwwsw4.zetaverse.one/storage/delete', {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': 'Bearer fjrSbdYBZFM3UFUjuZ999z4U3nM2',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        userId: currentUser._id,
+                        appSlug,
+                        filePath
+                    })
+                });
+
+                const fileResult = await deleteFileResponse.json();
+
+                if (fileResult.success) {
+                    // Delete assignment record
+                    const deleteRecordResponse = await fetch('https://r0c8kgwocscg8gsokogwwsw4.zetaverse.one/mongodb', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': 'Bearer fjrSbdYBZFM3UFUjuZ999z4U3nM2',
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            appSlug,
+                            action: 'delete',
+                            collection: 'assignments',
+                            id: assignmentId
+                        })
+                    });
+
+                    const recordResult = await deleteRecordResponse.json();
+                    if (recordResult.success) {
+                        alert('Assignment deleted successfully!');
+                        loadAssignments();
+                    }
+                }
+            } catch (error) {
+                console.error('Delete error:', error);
+                alert('Failed to delete assignment. Please try again.');
+            }
+            hideLoading();
+        }
+
+        // Reset password
+        async function resetPassword() {
+            const email = document.getElementById('forgotEmail').value;
+            alert('Password reset link has been sent to your email.');
+            toggleForms('loginForm');
+        }
+
+        // Logout
+        function logout() {
+            currentUser = null;
+            document.getElementById('authModal').style.display = 'flex';
+            document.getElementById('mainContent').classList.add('hidden');
+            toggleForms('loginForm');
+        }
+
+        // Initialize the app
+        init();
+    </script>
+<script>document.body.addEventListener('wheel', e => { if (!e.ctrlKey) return; e.preventDefault(); return }, { passive: false })</script>
+	</body>
+</html>
